@@ -1,0 +1,45 @@
+<?xml version='1.0' encoding='utf-8'?>
+<epm xmlns='http://eprints.org/ep2/data/2.0' id='http://template.ulcc.ac.uk/id/epm/orcid_report_api'>
+  <epmid>orcid_report_api</epmid>
+  <documents>
+    <document>
+      <files>
+        <file>
+          <datasetid>document</datasetid>
+          <filename>plugins/EPrints/Plugin/Export/Report/ORCID_JSON.pm</filename>
+          <mime_type>text/plain</mime_type>
+          <hash>8c3996505facdc0b591e246ebbe4a842</hash>
+          <hash_type>MD5</hash_type>
+          <filesize>11424</filesize>
+        </file>
+        <file>
+          <datasetid>document</datasetid>
+          <filename>epm/orcid_report_api/cgi/users/orcid_api</filename>
+          <mime_type>text/x-perl</mime_type>
+          <hash>81c6ab99f50204117ed6b00f09054383</hash>
+          <hash_type>MD5</hash_type>
+          <filesize>4416</filesize>
+        </file>
+      </files>
+      <mime_type>text/x-perl</mime_type>
+      <format>text</format>
+      <main>epm/orcid_report_api/cgi/users/orcid_api</main>
+      <content>install</content>
+    </document>
+  </documents>
+  <version>0.0.1</version>
+  <creators>
+    <item>
+      <name>
+        <family>Name</family>
+        <given>Your</given>
+      </name>
+      <id>you@email.address</id>
+    </item>
+  </creators>
+  <datestamp>2019-03-28 14:03:10</datestamp>
+  <title>ORCID report API</title>
+  <description>This is the description.</description>
+  <requirements>The following modules are required: X, Y, Z</requirements>
+  <home_page>http://github.com/your/project</home_page>
+</epm>
