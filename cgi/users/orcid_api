@@ -1,0 +1,163 @@
+#!/usr/bin/perl
+######################################################################
+#
+#  EPrints Repository Info Exporter
+#
+######################################################################
+#
+#  __COPYRIGHT__
+#
+# Copyright 2000-2010 University of Southampton. All Rights Reserved.
+# 
+#  __LICENSE__
+#
+######################################################################
+
+use EPrints;
+use EPrints::Const qw( :http );
+
+use Digest::MD5;
+use EPrints::Sword::Utils;
+ 
+use Apache2::RequestRec ();
+use Apache2::RequestIO ();
+
+use strict;
+my $repository = EPrints->new->current_repository;
+exit( 0 ) unless( defined $repository );
+# $repository->get_database->set_debug( 1 );
+
+my $path_info = $repository->get_request->path_info;
+
+my @path = split( '/', $path_info );
+shift @path; # lose leading /
+
+
+my $plugin = $repository->plugin( "Export::Report::ORCID_JSON" );
+
+if( !$plugin )
+{
+	$repository->not_found;
+	exit;
+}
+
+if( $plugin->param( "visible" ) eq "staff" )
+{
+	my $user = $repository->current_user;
+	if( !defined $user )
+	{
+		my $rc = EPrints::Apache::Auth::authen( $repository->get_request );
+		if( $rc != OK )
+		{
+			$repository->get_request->status( $rc );
+			exit;
+		}
+		$user = $repository->current_user;
+	}
+	if( $user->get_type ne "editor" && $user->get_type ne "admin" )
+	{
+		$repository->get_request->status( HTTP_FORBIDDEN );
+		exit;
+	}
+}
+
+my %arguments = %{$plugin->param( "arguments" )};
+# fetch the plugin arguments, if any
+foreach my $argname (keys %arguments)
+{
+	if( defined $repository->param( $argname ) )
+	{
+		$arguments{$argname} = $repository->param( $argname );
+	}
+}
+
+binmode(STDOUT, ':encoding(utf8)');
+
+if( $path[0] =~ m/^creators$/ && $path[1] =~ m/^users$/ && scalar @path == 2 )
+{
+	print STDERR "BY USERS\n";
+	export_creators_by_userid( $repository, $plugin, \%arguments, "eprint", $path[0] );
+}
+elsif( $path[0] =~ m/^creators$/ && $path[1] =~ m/^orcids$/ && scalar @path == 2 )
+{
+	print STDERR "BY ORCIDS\n";
+	export_creators_by_orcid( $repository, $plugin, \%arguments, "eprint", $path[0] );
+}
+else
+{
+	$repository->not_found;
+}
+	
+exit;
+
+# Export all eprints.creators and associated orcid stuff
+sub export_creators_by_userid
+{	
+	my( $repository, $plugin, $args ) = @_;
+
+	my $list = $repository->dataset( "eprint" )->search;
+	my $users = {};
+	$list->map( sub{ 
+		my( $session, $dataset, $eprint ) = @_;
+			
+		my $creators_orcids = $eprint->value("creators_orcid");
+		my $user;
+		for my $orcid(@{$creators_orcids}){
+			next if(!EPrints::Utils::is_set($orcid));
+			$user = $repository->dataset( "user" )->search(filters => [ { meta_fields => [ 'orcid' ], value => $orcid, describe=>0 } ])->item(0,1);
+			next if(!EPrints::Utils::is_set($user));		
+			$users->{$user->id}->{user} = $user if(!EPrints::Utils::is_set($users->{$user->id}->{user}));
+			push @{$users->{$user->id}->{eprints}}, $eprint;
+		}
+
+	} );
+
+	$plugin->initialise_fh( \*STDOUT );
+	$repository->send_http_header( "content_type"=>$plugin->param("mimetype") );
+	EPrints::Apache::AnApache::header_out( 
+		$repository->{"request"},
+		"Content-Disposition" => "inline" );
+
+	$plugin->output_list( fh=>\*STDOUT, list=>$users, exportfields=>[qw/eprintid title creators/], dataset=>$repository->dataset("eprint"), key_type => "user" );
+
+	# optional for output_dataobj to support 'fh'
+	#print $output if defined $output;
+
+
+}
+
+sub export_creators_by_orcid
+{	
+	my( $repository, $plugin, $args ) = @_;
+
+	my $list = $repository->dataset( "eprint" )->search;
+	my $users = {};
+	$list->map( sub{ 
+		my( $session, $dataset, $eprint ) = @_;
+			
+		my $creators_orcids = $eprint->value("creators_orcid");
+		my $user;
+		for my $orcid(@{$creators_orcids}){
+			next if(!EPrints::Utils::is_set($orcid));
+			$user = $repository->dataset( "user" )->search(filters => [ { meta_fields => [ 'orcid' ], value => $orcid, describe=>0 } ])->item(0,1);
+			if(!EPrints::Utils::is_set($user)){
+				
+			}else{
+				$users->{$orcid}->{user} = $user if(!EPrints::Utils::is_set($users->{$orcid}->{user}));
+			}
+			push @{$users->{$orcid}->{eprints}}, $eprint;
+		}
+
+	} );
+
+	$plugin->initialise_fh( \*STDOUT );
+	
+	$repository->send_http_header( "content_type"=>$plugin->param("mimetype") );
+	EPrints::Apache::AnApache::header_out( 
+		$repository->{"request"},
+		"Content-Disposition" => "inline" );
+	
+	$plugin->output_list( fh=>\*STDOUT, list=>$users, exportfields=>[qw/eprintid title creators/], dataset=>$repository->dataset("eprint"), key_type => "orcid" );
+
+}
+
